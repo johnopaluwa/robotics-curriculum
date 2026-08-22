@@ -1,5 +1,3 @@
-# robotics-curriculum
-
 # Embodied AI & Robotics Data Engineering — 6-Month Transition Curriculum
 
 **Target role:** Member of Technical Staff (MTS), Robotics Research & Data Infrastructure
