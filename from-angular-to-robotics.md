@@ -22,12 +22,14 @@
 9. [Module 5 — Physics Simulation & Synthetic Data](#module-5--physics-simulation--synthetic-data)
 10. [Module 6 — 3D Vision & Perception](#module-6--3d-vision--perception)
 11. [Module 7 — Capstone: Robot Data Studio](#module-7--capstone-robot-data-studio)
-12. [Timeline & milestones](#timeline--milestones)
-13. [Appendix A — Hardware notes](#appendix-a--hardware--environment-notes)
-14. [Appendix B — TypeScript → Python phrasebook](#appendix-b--typescript--python-phrasebook)
-15. [Appendix C — Reading list](#appendix-c--reading-list)
-16. [Appendix D — Interview prep & positioning](#appendix-d--interview-prep--positioning)
-17. [Appendix E — The compressed 6-month variant](#appendix-e--the-compressed-6-month-variant)
+12. [Module 8 (Optional) — Real-Hardware Deployment & the Live Studio](#module-8-optional--real-hardware-deployment--the-live-studio)
+13. [Module 9 (Optional) — Multi-Task Generalist VLA on Real Hardware](#module-9-optional--multi-task-generalist-vla-on-real-hardware)
+14. [Timeline & milestones](#timeline--milestones)
+15. [Appendix A — Hardware notes](#appendix-a--hardware--environment-notes)
+16. [Appendix B — TypeScript → Python phrasebook](#appendix-b--typescript--python-phrasebook)
+17. [Appendix C — Reading list](#appendix-c--reading-list)
+18. [Appendix D — Interview prep & positioning](#appendix-d--interview-prep--positioning)
+19. [Appendix E — The compressed 6-month variant](#appendix-e--the-compressed-6-month-variant)
 
 ---
 
@@ -1423,6 +1425,108 @@ Note that "products" is in the actual posting. For a company whose business is a
 
 ---
 
+## Module 8 (Optional) — Real-Hardware Deployment & the Live Studio
+
+> **Month 9 (extension) · Objective:** Close the loop on physical hardware, and extend the studio itself to handle data you actually collected — including, if you push further, a live streaming view of the teleop session. This is the artefact that separates "I built a viewer for public datasets" from "I built the thing my own robot runs through."
+
+Everything through Module 7 can be done, and `robot-data-studio` shipped, without ever touching a physical robot. This module is what you add if you want the studio to prove itself against real, messy, self-collected data instead of only clean public datasets — and it doubles as one more tooling differentiator almost nobody else in the applicant pool will have.
+
+### Hardware
+
+- **SO-101** (successor to SO-100) — the low-cost leader/follower arm pair built by the LeRobot community, designed to be teleoperated and recorded directly into the LeRobot format your `core/converter.py` already speaks. Roughly $250–400 for a leader+follower pair including servos; 3D-printed parts if you have a printer, or order them printed.
+- 2× USB webcams (~$25–40 each) — one static, one wrist-mounted if your kit supports it.
+- A desk-scale manipulation task — pick-and-place a block, or a short insertion task. The pipeline is the point, not the task difficulty.
+
+### Week-by-week
+
+| Week | Focus | Output |
+|---|---|---|
+| 1 | Assembly, servo calibration, teleop control loop | Working leader→follower teleop |
+| 2 | Data collection tool, reusing `core/sync.py` and the LeRobot writer from Module 2 | 50–100 real demonstration episodes |
+| 3 | Train ACT or Diffusion Policy (Module 4) on your own real dataset; run `core/validator.py` against real noisy data for the first time | Trained checkpoint + a validator report on data you actually collected |
+| 4 | **Leverage week:** load real episodes into `episode-browser` and `sync-player` side by side with public ones; stretch goal — stream the live teleop session into `trajectory-3d` over a WebSocket | Studio handling real data, optionally live |
+
+### Why this is the highest-leverage single addition
+
+Every other artefact in the curriculum is either public-dataset-trained or simulation-only, and the Module 5 DR ablation is explicitly a stand-in for sim-to-real. This module replaces the stand-in with the real thing, and gives the studio something no public LeRobot dataset can: data with your own teleop noise, your own sensor placement, your own failure modes — the exact conditions the studio's quality-timeline and triage features were built to surface. "I ran my own validator against data I collected myself, and here's what it caught that public datasets never exercised" is a stronger claim than anything trained purely on Open X-Embodiment.
+
+If you build the live WebSocket view, you also have a demo that nothing else in the portfolio can match: open the studio, teleoperate the arm, and watch the 3D trajectory and signal plots update in real time. That is the closest a portfolio project gets to a product demo at an actual robotics company.
+
+### Deliverables
+
+1. **`teleop-record`** — a recording tool, reusing `core/sync.py` and the LeRobot converter, capturing your own teleoperated demonstrations in your schema.
+2. **A real-world dataset** (50–100 episodes) published to Hugging Face in LeRobot format with a dataset card — your first dataset that isn't derived from someone else's collection.
+3. **The studio extended to real data** — real episodes browsable, playable, and triageable alongside public ones in `episode-browser`.
+4. **A sim-vs-real write-up** in `RESULTS.md`: the same task's simulated success rate (Module 5) next to the measured real success rate, with a discussion of which specific gap source dominated for your setup.
+5. *(Stretch)* **A live teleop view** — the teleop stream pushed over a WebSocket into `trajectory-3d` and `signal-plots` in real time, not just replayed from a file.
+
+### Self-check
+
+- Which of the studio's validator checks fired on your own real data that never fired on any public dataset, and why?
+- What changes about `sync-player` and `trajectory-3d` when the source is a live WebSocket stream instead of a static episode file — what has to become incremental that wasn't before?
+- Where did your simulated DR ablation's prediction diverge most from the measured real result?
+- If you had budget for 50 more real episodes, would you spend it on more of the same task or on recovery data? Justify from your own failure taxonomy.
+
+---
+
+## Module 9 (Optional) — Multi-Task Generalist VLA on Real Hardware
+
+> **Month 10 (extension) · Objective:** Go from "one policy, one task" (Module 8) to one language-conditioned generalist policy performing several distinct tasks on the same arm — and build the studio panel that lets you watch it decide, task by task, in real time.
+
+Module 4 already has you touching a VLA (RT-2/OpenVLA/π₀ as reading and, per Appendix A, an OpenVLA LoRA fine-tune) — but on public OXE data. Module 8 already has you deploying a real policy on real hardware — but one policy, one task. Neither alone is "a robot that does different things." This module combines them, and forces the two problems neither one makes you confront: **a generalist policy is a data-collection problem before it's a modelling problem, and real-time inference is a hardware problem your laptop cannot solve.**
+
+### Why this is its own module, not a bigger Module 8
+
+- **Data doesn't scale the way intuition suggests.** One task needs ~50–100 demos to generalize to itself. Several tasks, without one degrading the others during fine-tuning, needs roughly that much *per task* — a multi-week collection effort, not a bigger training run.
+- **Inference latency is a hard constraint.** A 7B VLA in a closed control loop needs tens-of-Hz throughput. The Quadro P3000 cannot serve that (Appendix A) — you have to solve deployment inference explicitly, and the studio is where you'll see whether you actually did.
+
+### Hardware & compute
+
+- Same **SO-101** rig from Module 8 — no new data-collection hardware.
+- **Fine-tuning:** rented A100/H100, same discipline as the Appendix-A OpenVLA LoRA job (~$100–250 extra for the multi-task fine-tune).
+- **Inference at deployment — pick one and justify it in `RESULTS.md`:**
+  - **(a) Quantize/shrink** — a quantized OpenVLA or a smaller distilled VLA, on a borrowed/bought consumer GPU (RTX 3060/4060, 12 GB).
+  - **(b) Rent a GPU box for the demo window.** A RunPod community-cloud RTX 4090 pod (~$0.30–0.50/hr) is plenty for a 7B VLA at usable throughput; step up to a secure-cloud A100 (~$1.5–2/hr) only if 4090 latency isn't enough. Run a small inference server (FastAPI/gRPC) on the pod, stream camera frames and robot state to it over a WebSocket from your laptop/robot controller, get actions back the same way, and spin the pod up only for eval sessions — billed per second, an hour of testing costs well under a dollar. Treat **network round-trip plus model inference as one latency budget you measure end-to-end**, not two numbers you estimate separately; home broadband to a datacenter is typically 20–50 ms before the model even runs, which is exactly why option (c) below matters.
+  - **(c) Reduce the control burden, not the model** — larger action chunks mean fewer inference round-trips per second; try this first, it's free.
+  - Whichever you pick, report the achieved control rate and its effect on success rate — that measurement is a legitimate result on its own.
+
+### Week-by-week
+
+| Week | Focus | Output |
+|---|---|---|
+| 1 | Pick 4–6 desk-scale tasks (your Module 8 task plus 3–5 new ones); collect and validate 50–100 demos each with `teleop-record` | 200–600 labelled multi-task episodes |
+| 2 | LoRA fine-tune a VLA on OXE **plus** your multi-task set, language-conditioned on instruction strings | Fine-tuned generalist checkpoint |
+| 3 | Solve deployment inference; wire language-conditioned task switching into the eval loop | Closed-loop generalist policy running on the SO-101 |
+| 4 | **Leverage week:** build a `task-runner` panel in the studio — pick a task by typing/selecting its instruction, watch the live camera feed, `trajectory-3d`, and per-task success tally update as the policy runs | Studio driving and comparing a live generalist policy |
+
+### The experiment that matters
+
+Run every task two ways, in the same table:
+
+| Condition | What it tests |
+|---|---|
+| Module 8 single-task specialist (per task) | Upper bound — a policy trained only for this one task |
+| Module 9 generalist, language-conditioned | Does one shared policy match, beat, or trail the specialists, and by how much per task? |
+
+A generalist that trails the specialists slightly but runs five tasks off one checkpoint is a defensible result. One that collapses on most tasks is also defensible — if you can point to *why* (usually insufficient per-task data, or task interference in the fine-tuning mixture) and what more budget would fix.
+
+### Deliverables
+
+1. **A multi-task real-world dataset** (4–6 tasks, 200–600 episodes) published to Hugging Face, task-labelled, LeRobot format.
+2. **A fine-tuned generalist VLA checkpoint**, language-conditioned, with the fine-tuning recipe (base checkpoint, LoRA rank, OXE-vs-own-data mixture ratio) documented.
+3. **`task-runner`** — the studio panel that launches a task by instruction, shows the live policy rollout, and tallies per-task success against the specialist baseline. **This is the module's headline artefact** — nobody else's portfolio will have a browser tool that drives a live generalist policy on physical hardware.
+4. **A deployment-inference write-up**: which of (a)/(b)/(c), the achieved control rate, and its cost.
+5. **`RESULTS.md` generalist-vs-specialist table** with confidence intervals per task.
+
+### Self-check
+
+- Why can't the same 50–100 demos that sufficed for one task in Module 8 also suffice for a good multi-task policy?
+- What is catastrophic forgetting here, and how would it show up in your per-task table?
+- You measured 3 Hz achievable inference. What does that force you to change about action chunk size, and why?
+- Your generalist beats the specialist on task A but badly trails it on task B — what would you change first: data volume, task balance in the fine-tuning mixture, or something else? Justify from what `task-runner` actually showed you.
+
+---
+
 ## Timeline & Milestones
 
 | Month | Module | Core output | Done when |
@@ -1435,6 +1539,8 @@ Note that "products" is in the actual posting. For a company whose business is a
 | **5** | Simulation & synthetic data | `synth-gen` 5k episodes, DR ablation | Seed → bit-identical dataset verified |
 | **6** | 3D perception | `rgbd-fuse`, `depth-qa`, browser cloud viewer | Two views merge with sub-cm residual |
 | **7–8** | Capstone | **`robot-data-studio` published + deployed + written up** | A stranger runs it in 15 minutes |
+| **9 (optional)** | Real-hardware deployment | `teleop-record` + real HF dataset + studio handling real data | Sim-vs-real success rate comparison published in `RESULTS.md` |
+| **10 (optional)** | Multi-task generalist VLA | Fine-tuned language-conditioned VLA + `task-runner` studio panel | Generalist-vs-specialist table published in `RESULTS.md` |
 
 **Weekly cadence**
 
@@ -1466,6 +1572,8 @@ Note that "products" is in the actual posting. For a company whose business is a
 | **NVIDIA Isaac Sim / Isaac Lab** | ❌ No | Needs RTX ray-tracing cores. Learn the concepts; use MuJoCo for all hands-on work |
 | Fine-tuning OpenVLA (7B) | ❌ No | Rent an A100/H100 (Lambda, RunPod, Vast.ai, ~$1–3/hr). Budget ~$150–250 across the whole plan |
 | 3D Gaussian Splatting | ⚠️ Small scenes only | 6 GB caps scene size; fine for a tabletop |
+| **Physical robot (optional, Module 8)** | ✅ Yes, desk-scale | SO-101 leader/follower kit (~$250–400) + 2 USB webcams (~$50–80); no industrial infrastructure needed |
+| **Multi-task generalist VLA inference (optional, Module 9)** | ⚠️ Not on the P3000 | Real-time closed-loop control needs a consumer GPU (RTX 3060/4060, ~$300–450 bought/borrowed) or a rented cloud GPU for the eval window; budget ~$100–250 again for the multi-task fine-tune |
 
 **Setup**
 
